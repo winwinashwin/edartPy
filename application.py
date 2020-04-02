@@ -1,0 +1,104 @@
+# import necessary libraries
+from yahoo_fin.stock_info import get_live_price
+
+
+class Trader:
+	def __init__(self, ticker):
+		self.ticker = ticker
+		self.time = [i for i in range(-25, DATA_LIMIT + 27)]
+		self.price = []
+		self.tenkan_data = []
+		self.kijun_data = []
+		self.chikou_data = []
+		self.senkou_A_data = []
+		self.senkou_B_data = []
+
+		self.IN_SHORT_TRADE = False
+		self.IN_LONG_TRADE = False
+		self.BUFFER_PERCENTAGE = 0.09
+		self.price_for_buffer = 0
+		self.ACCOUNT = 0
+		self.STOCKS_TO_SELL = 0
+		self.STOCKS_TO_BUY_BACK = 0
+
+	def get_initial_data(self):
+		for i in range(DATA_LIMIT):
+			self.price.append(get_live_price(self.ticker))
+			# time append
+			progress = round(i*100/DATA_LIMIT, 1)
+
+	def buy(self, price):
+		self.bought_price = price
+		self.ACCOUNT -= price
+
+	def sell(self, price):
+		self.sold_price = price
+		self.ACCOUNT += price
+
+	def update_data(self):
+		new_price = get_live_price(self.ticker)
+		self.time.append(self.time[-1] + 1)
+		self.price.append(new_price)
+		self.time.__delitem__(0)
+		self.price.__delitem__(0)
+
+	def make_decision(self):
+		self.tenkan_data = []
+		for i in range(DATA_LIMIT - 9):
+			tenkan_src = self.price[i:i + 9]
+			self.tenkan_data.append((max(tenkan_src) + min(tenkan_src)) / 2)
+		self.kijun_data = []
+		for i in range(DATA_LIMIT - 26):
+			kijun_src = self.price[i:i + 26]
+			self.kijun_data.append((max(kijun_src) + min(kijun_src)) / 2)
+		self.x5 = self.time[78:78 + DATA_LIMIT - 26]
+		self.x6 = self.time[104:104 + DATA_LIMIT - 52]
+		self.senkou_A_data = [(self.tenkan_data[i + 17] + self.kijun_data[i]) / 2 for i in range(DATA_LIMIT - 26)]
+		self.senkou_B_data = []
+		for i in range(DATA_LIMIT - 52):
+			senkou_B_src = self.price[i:i + 52]
+			self.senkou_B_data.append((max(senkou_B_src) + min(senkou_B_src)) / 2)
+
+		x = self.time[26:26 + DATA_LIMIT][-1]
+		curr_price = self.price[-1]
+		tenkan = self.tenkan_data[-1]
+		kijun = self.kijun_data[-1]
+		sen_A = get_value(self.senkou_A_data, self.x5, x)
+		sen_B = get_value(self.senkou_B_data, self.x6, x)
+
+		# conditions for long trade entry
+		cond1 = sen_A > sen_B and curr_price >= sen_A
+		# conditions for short trade entry
+		cond2 = sen_A < sen_B and curr_price <= sen_A
+
+		# for trade entry
+		if cond1 and not self.IN_LONG_TRADE:
+			self.buy(curr_price)
+			self.price_for_buffer = curr_price
+			self.IN_LONG_TRADE = True
+			self.STOCKS_TO_SELL += 1
+		if cond2 and not self.IN_SHORT_TRADE:
+			self.sell(curr_price)
+			self.price_for_buffer = curr_price
+			self.IN_SHORT_TRADE = True
+			self.STOCKS_TO_BUY_BACK += 1
+
+		# setup buffer for stop loss and trade exit
+		buffer = self.price_for_buffer*self.BUFFER_PERCENTAGE
+		cond3 = abs(curr_price - kijun) >= buffer
+
+		# for trade exit
+		if self.IN_LONG_TRADE:
+			if cond3:
+				self.sell(curr_price)
+				self.IN_LONG_TRADE = False
+				self.STOCKS_TO_SELL -= 1
+		if self.IN_SHORT_TRADE:
+			if cond3:
+				self.buy(curr_price)
+				self.IN_SHORT_TRADE = False
+				self.STOCKS_TO_BUY_BACK -= 1
+
+	def driver(self):
+		self.update_data()
+		self.make_decision()
