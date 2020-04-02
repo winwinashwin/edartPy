@@ -4,3 +4,5 @@ __pycache__/*
 # virtual environment
 venv/*
 
+# script for running trials
+trial.py
