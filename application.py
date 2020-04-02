@@ -2,6 +2,9 @@
 from yahoo_fin.stock_info import get_live_price
 from CONSTANTS import *
 import datetime
+import requests
+from bs4 import BeautifulSoup
+from collections import deque
 
 
 # function to check if market is open or closed
@@ -18,6 +21,39 @@ def is_open():
 		return False
 	return True
 
+
+# find stocks to focus on
+def fetch_stocks(num_of_stocks):
+	# url to scrape data from
+	url = "https://in.finance.yahoo.com/gainers"
+	# request header 
+	headers = {
+		'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
+	}
+	# get source code of page and parse it
+	src = request.get(url= url, headers= headers).content
+	soup = BeautifulSoup(src, "html.parser")
+	rows = soup.find('table').tbody.find_all("tr")
+
+	stocks_temp = dict()
+	stocks = deque()
+	count = 0
+
+	for tr in rows:
+		if count == num_of_stocks:
+			break
+		else:
+			stock_name, stock_ex = tr.find('td').text.strip().split(".")
+			if stock_name in stocks_temp:
+				continue
+			else:
+				stocks_temp[stock_name] = stock_ex
+				count += 1
+
+	for stock in stocks_temp:
+		stocks.append(f"{stock}.{stocks_temp[stock]}")
+
+	return stocks
 
 class Trader:
 	def __init__(self, ticker):
