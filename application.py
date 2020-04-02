@@ -1,10 +1,11 @@
 # import necessary libraries
 from yahoo_fin.stock_info import get_live_price
+from bs4 import BeautifulSoup
+from collections import deque
 from CONSTANTS import *
 import datetime
 import requests
-from bs4 import BeautifulSoup
-from collections import deque
+import json
 
 
 # function to check if market is open or closed
@@ -22,53 +23,59 @@ def is_open():
 	return True
 
 
-# find stocks to focus on
-def fetch_stocks(num_of_stocks):
-	# url to scrape data from
-	url = "https://in.finance.yahoo.com/gainers"
-	# request header 
-	headers = {
-		'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
-	}
-	# get source code of page and parse it
-	src = request.get(url= url, headers= headers).content
-	soup = BeautifulSoup(src, "html.parser")
-	rows = soup.find('table').tbody.find_all("tr")
+# returns a list of stocks to focus on
+def fetch_stocks():
+    # url to grab data from
+    url = f'https://in.finance.yahoo.com/gainers?count={NUM_OF_STOCKS_TO_SEARCH}'
+    # request header
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
+        }
+    src = requests.get(url=url, headers= headers).content
+    # soup of parsed html
+    soup = BeautifulSoup(src, "html.parser")
+    rows = soup.find('table').tbody.find_all('tr')
+    # initialisations
+    stocks_temp, count = dict(), 0
+    stocks = deque()
+    # iterate over rows in web page
+    for tr in rows:
+    	# exit if 
+        if count == NUM_OF_STOCKS_TO_FOCUS:
+            break
+        else:
+            row_data = tr.find_all('td')
+            price = float(row_data[2].text.strip().replace(',', ""))
+            # split ticker for checking if same stock of diff stock exchage if selected or not
+            stock_name, stock_ex = row_data[0].text.strip().split(".")
+            if price >= PENNY_STOCK_THRESHOLD and stock_name not in stocks_temp:
+                stocks_temp[stock_name] = stock_ex
+                count += 1
+    # get back ticker
+    for stock in stocks_temp:
+    	stocks.append(f"{stock}.{stocks_temp[stock]}")
+    # return deque of stocks to focus on
+    return stocks
 
-	stocks_temp = dict()
-	stocks = deque()
-	count = 0
 
-	for tr in rows:
-		if count == num_of_stocks:
-			break
-		else:
-			stock_name, stock_ex = tr.find('td').text.strip().split(".")
-			if stock_name in stocks_temp:
-				continue
-			else:
-				stocks_temp[stock_name] = stock_ex
-				count += 1
+# helper function for trader
+def get_value(ref, x_src, x):
+	return ref[x_src.index(x)]
 
-	for stock in stocks_temp:
-		stocks.append(f"{stock}.{stocks_temp[stock]}")
-
-	return stocks
 
 class Trader:
 	def __init__(self, ticker):
 		self.ticker = ticker
-		self.time = [i for i in range(-25, DATA_LIMIT + 27)]
-		self.price = []
-		self.tenkan_data = []
-		self.kijun_data = []
-		self.chikou_data = []
-		self.senkou_A_data = []
-		self.senkou_B_data = []
+		self.time = deque(i for i in range(-25, DATA_LIMIT + 27))
+		self.price = deque()
+		self.tenkan_data = deque()
+		self.kijun_data = deque()
+		self.chikou_data = deque()
+		self.senkou_A_data = deque()
+		self.senkou_B_data = deque()
 
 		self.IN_SHORT_TRADE = False
 		self.IN_LONG_TRADE = False
-		self.BUFFER_PERCENTAGE = 0.09
 		self.price_for_buffer = 0
 		self.ACCOUNT = 0
 		self.STOCKS_TO_SELL = 0
@@ -77,7 +84,6 @@ class Trader:
 	def get_initial_data(self):
 		for i in range(DATA_LIMIT):
 			self.price.append(get_live_price(self.ticker))
-			# time append
 			progress = round(i*100/DATA_LIMIT, 1)
 
 	def buy(self, price):
@@ -137,7 +143,7 @@ class Trader:
 			self.STOCKS_TO_BUY_BACK += 1
 
 		# setup buffer for stop loss and trade exit
-		buffer = self.price_for_buffer*self.BUFFER_PERCENTAGE
+		buffer = self.price_for_buffer*BUFFER_PERCENT
 		cond3 = abs(curr_price - kijun) >= buffer
 
 		# for trade exit
@@ -152,10 +158,10 @@ class Trader:
 				self.IN_SHORT_TRADE = False
 				self.STOCKS_TO_BUY_BACK -= 1
 
-	def driver(self):
+	def run(self):
 		self.update_data()
 		self.make_decision()
 
 
 if __name__ == "__main__":
-	pass
+	print(fetch_stocks())
