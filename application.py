@@ -1,5 +1,22 @@
 # import necessary libraries
 from yahoo_fin.stock_info import get_live_price
+from CONSTANTS import *
+import datetime
+
+
+# function to check if market is open or closed
+def is_open():
+	now = datetime.datetime.now(TZ)
+	# if a holiday
+	if now.strftime('%Y-%m-%d') in INDIA_HOLIDAYS:
+		return False
+	# if before opening or after closing
+	if (now.time() < OPEN_TIME) or (now.time() > CLOSE_TIME):
+		return False
+	# if it is a weekend
+	if now.date().weekday() > 4:
+		return False
+	return True
 
 
 class Trader:
@@ -102,3 +119,7 @@ class Trader:
 	def driver(self):
 		self.update_data()
 		self.make_decision()
+
+
+if __name__ == "__main__":
+	pass

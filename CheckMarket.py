@@ -1,7 +1,7 @@
 import datetime, pytz, holidays
 
-tz = pytz.timezone('US/Eastern')
-us_holidays = holidays.US()
+tz = pytz.timezone('Asia/Calcutta')
+us_holidays = holidays.India()
 def afterHours(now = None):
         if not now:
             now = datetime.datetime.now(tz)
@@ -16,5 +16,7 @@ def afterHours(now = None):
         # If it's a weekend
         if now.date().weekday() > 4:
             return True
-
         return False
+
+
+print(afterHours())
