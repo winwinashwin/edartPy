@@ -3,10 +3,46 @@
 from my_fin.stock_info import get_live_price
 from bs4 import BeautifulSoup
 from collections import deque
-from CONSTANTS import *
+from threading import Thread
+from time import sleep
 import datetime
 import requests
+import holidays
+import datetime
+import pytz
 import json
+import os
+
+
+##############################################################
+
+# set time zone
+TZ = pytz.timezone('Asia/Calcutta')
+# set holidays
+INDIA_HOLIDAYS = holidays.India()
+# set market open time
+OPEN_TIME = datetime.time(hour= 9, minute= 30, second= 0)
+# set market close time
+CLOSE_TIME = datetime.time(hour= 16, minute= 0, second= 0)
+
+##############################################################
+
+# only those stocks will be considered whose price is above threshold
+PENNY_STOCK_THRESHOLD = 50
+# number of stocks to select relevant ones from
+NUM_OF_STOCKS_TO_SEARCH = 100
+# number of stocks to focus trading on
+NUM_OF_STOCKS_TO_FOCUS = 5
+# percentage buffer to be set for stop loss/trade exit
+BUFFER_PERCENT = 0.09
+# number of observations of prices during initialisation phase, minimum value of 80
+DATA_LIMIT = 80
+# interval of each period, in seconds
+PERIOD_INTERVAL = 0.1  # change to 60
+# percentage of account balance to be considered for trading
+FEASIBLE_PERCENT = 0.2  # 20%
+
+##############################################################
 
 
 # function to check if market is open or closed
@@ -67,13 +103,13 @@ def get_value(ref, x_src, x):
 class Trader:
 	def __init__(self, ticker):
 		self.ticker = ticker
-		self.time = deque(i for i in range(-25, DATA_LIMIT + 27))
-		self.price = deque()
-		self.tenkan_data = deque()
-		self.kijun_data = deque()
-		self.chikou_data = deque()
-		self.senkou_A_data = deque()
-		self.senkou_B_data = deque()
+		self.time = [i for i in range(-25, DATA_LIMIT + 27)]
+		self.price = []
+		self.tenkan_data = []
+		self.kijun_data = []
+		self.chikou_data = []
+		self.senkou_A_data = []
+		self.senkou_B_data = []
 
 		self.IN_SHORT_TRADE = False
 		self.IN_LONG_TRADE = False
@@ -86,18 +122,25 @@ class Trader:
 		for i in range(DATA_LIMIT):
 			self.price.append(get_live_price(self.ticker))
 			progress = round(i*100/DATA_LIMIT, 1)
-			print()
+			print(f">>> Initialising data {progress}%", end="\r")
+			sleep(PERIOD_INTERVAL)
+		print(" "*50)
 
 	def buy(self, price):
 		self.bought_price = price
 		self.ACCOUNT -= price
+		print(f"\tBought at : {price}")
 
 	def sell(self, price):
 		self.sold_price = price
 		self.ACCOUNT += price
+		print(f"\tSold at : {price}")
 
 	def update_data(self):
 		new_price = get_live_price(self.ticker)
+		if not new_price:
+			print(f"Net profit : ", self.ACCOUNT)
+			quit(0)
 		self.time.append(self.time[-1] + 1)
 		self.price.append(new_price)
 		self.time.__delitem__(0)
@@ -165,5 +208,35 @@ class Trader:
 		self.make_decision()
 
 
+class Master:
+	def __init__(self):
+		self.traders = deque()
+
+	def validate_repo(self):
+		if not os.path.exists(".\\database"):
+			os.mkdir("database")
+		os.chdir("database")
+
+	def lineup_traders(self, tickers):
+		for ticker in tickers:
+			self.traders.append(Trader(ticker))
+
+	def init_traders(self):
+		print(">>> Traders are in Observation phase")
+		threads = deque()
+		for trader in self.traders:
+			t = Thread(target=trader.get_initial_data)
+			t.daemon = True
+			threads.append(t)
+			t.start()
+		for thread in threads:
+			thread.join()
+		print("\tStatus : Complete")
+
+	def start_trading(self):
+		while True:
+			try:
+
+
 if __name__ == "__main__":
-	print(fetch_stocks())
+	pass

@@ -10,3 +10,5 @@ trial.py
 # my_fin package
 my_fin/*
 
+# dataset for testing purposes
+test_data/*
