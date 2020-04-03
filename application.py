@@ -1,6 +1,6 @@
 # import necessary libraries
 # from yahoo_fin.stock_info import get_live_price
-from my_fin import get_live_price
+from my_fin.stock_info import get_live_price
 from bs4 import BeautifulSoup
 from collections import deque
 from CONSTANTS import *
