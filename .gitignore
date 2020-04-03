@@ -6,3 +6,7 @@ venv/*
 
 # script for running trials
 trial.py
+
+# my_fin package
+my_fin/*
+

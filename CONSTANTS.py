@@ -24,5 +24,7 @@ NUM_OF_STOCKS_TO_SEARCH = 100
 NUM_OF_STOCKS_TO_FOCUS = 5
 # percentage buffer to be set for stop loss/trade exit
 BUFFER_PERCENT = 0.09
+# number of observations of prices during initialisation phase, minimum value of 80
+DATA_LIMIT = 80
 
 ##############################################################

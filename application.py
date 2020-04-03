@@ -1,5 +1,6 @@
 # import necessary libraries
-from yahoo_fin.stock_info import get_live_price
+# from yahoo_fin.stock_info import get_live_price
+from my_fin import get_live_price
 from bs4 import BeautifulSoup
 from collections import deque
 from CONSTANTS import *
@@ -85,6 +86,7 @@ class Trader:
 		for i in range(DATA_LIMIT):
 			self.price.append(get_live_price(self.ticker))
 			progress = round(i*100/DATA_LIMIT, 1)
+			print()
 
 	def buy(self, price):
 		self.bought_price = price
