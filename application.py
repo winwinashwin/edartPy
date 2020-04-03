@@ -19,9 +19,9 @@ TZ = pytz.timezone('Asia/Calcutta')
 # set holidays
 INDIA_HOLIDAYS = holidays.India()
 # set market open time
-OPEN_TIME = datetime.time(hour= 9, minute= 20, second= 0)
+OPEN_TIME = datetime.time(hour=9, minute=20, second=0)
 # set market close time
-CLOSE_TIME = datetime.time(hour= 15, minute= 30, second= 0)
+CLOSE_TIME = datetime.time(hour=15, minute=30, second=0)
 
 ##############################################################
 
@@ -47,9 +47,14 @@ DELAY = 300
 # delay in idle phase, in seconds
 IDLE_DELAY = 1800
 # time to stop trading
-PACKUP = datetime.time(hour= 15, minute= 15, second= 0)
+PACKUP = datetime.time(hour=15, minute=15, second=0)
 
 ##############################################################
+
+ACCOUNT = json.loads(open("database/user_info.json").read())["account_balance"] * FEASIBLE_PERCENT
+
+##############################################################
+
 
 # function to check if market is open or closed
 def is_open():
@@ -72,7 +77,7 @@ def fetch_stocks():
 	url = f'https://in.finance.yahoo.com/gainers?count={NUM_OF_STOCKS_TO_SEARCH}'
 	# request header
 	headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'}
-	src = requests.get(url=url, headers= headers).content
+	src = requests.get(url=url, headers=headers).content
 	# soup object of source code
 	soup = BeautifulSoup(src, "html.parser")
 	rows = soup.find('table').tbody.find_all('tr')
@@ -90,9 +95,9 @@ def fetch_stocks():
 	count = len(stocks_temp)
 	stocks = deque()
 	# iterate over rows in web page
-    for tr in rows:
+	for tr in rows:
 		# exit if
-        if count == NUM_OF_STOCKS_TO_FOCUS:
+		if count == NUM_OF_STOCKS_TO_FOCUS:
 			break
 		else:
 			row_data = tr.find_all('td')
@@ -103,10 +108,10 @@ def fetch_stocks():
 				stocks_temp[stock_name] = stock_ex
 				count += 1
 	# get back ticker
-    for stock in stocks_temp:
+	for stock in stocks_temp:
 		stocks.append(f"{stock}.{stocks_temp[stock]}")
 	# return deque of stocks to focus on
-    return stocks
+	return stocks
 
 
 # helper function for trader
@@ -127,6 +132,9 @@ class Trader:
 		self.chikou_data = []
 		self.senkou_A_data = []
 		self.senkou_B_data = []
+		# x values for senkou A and senkou B
+		self.x5 = []
+		self.x6 = []
 		# database to save activity of trader
 		self.database = dict()
 		self.database["Ticker"] = self.ticker
@@ -134,12 +142,14 @@ class Trader:
 		# other params used within trader class
 		self.IN_SHORT_TRADE = False
 		self.IN_LONG_TRADE = False
-		self.price_for_buffer = 0
 		self.STOCKS_TO_SELL = 0
 		self.STOCKS_TO_BUY_BACK = 0
+		self.price_for_buffer = 0
+		self.sold_price = 0
+		self.bought_price = 0
 		# set params in accordance with previous day's data
 		prev_data = json.loads(open("../user_info.json").read())
-		# check if alloted stock has been bought the previous day or not, long trade
+		# check if allotted stock has been bought the previous day or not, long trade
 		if self.ticker in prev_data["stocks_to_sell"]:
 			price = prev_data["stocks_to_sell"][self.ticker]["buffer_price"]
 			self.IN_LONG_TRADE = True
@@ -165,8 +175,8 @@ class Trader:
 		self.bought_price = price
 		ACCOUNT -= price
 		self.database['Activity'][now] = {
-			"trade" : trade,
-			"bought at" : price
+			"trade": trade,
+			"bought at": price
 		}
 
 	def sell(self, price, trade):
@@ -175,8 +185,8 @@ class Trader:
 		self.sold_price = price
 		ACCOUNT += price
 		self.database['Activity'][now] = {
-			"trade" : trade,
-			"sold at" : price
+			"trade": trade,
+			"sold at": price
 		}
 
 	# function to update data with new price
@@ -214,18 +224,17 @@ class Trader:
 		# get Ichimoku params for comparison
 		x = self.time[26:26 + DATA_LIMIT][-1]
 		curr_price = self.price[-1]
-		tenkan = self.tenkan_data[-1]
 		kijun = self.kijun_data[-1]
 		sen_A = get_value(self.senkou_A_data, self.x5, x)
 		sen_B = get_value(self.senkou_B_data, self.x6, x)
 
 		# conditions for long trade entry
 		# If Kumo cloud is green and current price is above kumo, strong bullish signal
-		cond1 = sen_A > sen_B and curr_price >= sen_A
+		cond1 = (sen_A > sen_B) and (curr_price >= sen_A)
 		# conditions for short trade entry
 		# If Kumo cloud is red and current price is below kumo, strong bearish signal
-		cond2 = sen_A < sen_B and curr_price <= sen_A
-		# check allcated money
+		cond2 = (sen_A < sen_B) and (curr_price <= sen_A)
+		# check allocated money
 		cond3 = curr_price < ACCOUNT
 
 		# IF all conditions are right, long trade entry
@@ -350,8 +359,8 @@ class Master:
 			fp.write(json.dumps(new_data))
 		# output profit
 		print(f"\n\nNet Profit : {profit} INR\n")
-		print(f"Stocks owned : {len(new_data["stocks_to_sell"])}")
-		print(f"Stocks owed : {len(new_data["stocks_to_buy_back"])}")
+		print(f'Stocks owned : {len(new_data["stocks_to_sell"])}')
+		print(f'Stocks owed : {len(new_data["stocks_to_buy_back"])}')
 
 
 if __name__ == "__main__":
@@ -364,7 +373,6 @@ if __name__ == "__main__":
 		quit(0)
 
 	# load maximum amount allowed to trade
-	ACCOUNT = json.loads(open("database/user_info.json").read())["account_balance"]*FEASIBLE_PERCENT
 
 	# allow market to settle to launch Ichimoku strategy
 	print(f">>> Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
@@ -390,5 +398,4 @@ if __name__ == "__main__":
 
 	# initiate packup
 	master.packup()
-
 	quit(0)
