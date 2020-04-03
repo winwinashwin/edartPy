@@ -12,3 +12,6 @@ my_fin/*
 
 # dataset for testing purposes
 test_data/*
+
+# database for storing user activity and demat account info
+database/*
