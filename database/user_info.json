@@ -1,0 +1,14 @@
+{
+	"username" : "Ashwin A Nayar",
+	"account_balance": 10000,
+	"stocks_to_sell": {
+		"ticker1": {
+			"buffer_price": 0
+		}
+	},
+	"stocks_to_buy_back": {
+		"ticker2": {
+			"buffer_price" : 0
+		}
+	}
+}
