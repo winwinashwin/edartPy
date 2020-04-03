@@ -2,7 +2,6 @@
 from yahoo_fin.stock_info import get_live_price
 from bs4 import BeautifulSoup
 from collections import deque
-from threading import Thread
 from time import sleep
 import requests
 import holidays
@@ -164,10 +163,6 @@ class Trader:
 	def get_initial_data(self):
 		for i in range(DATA_LIMIT):
 			self.price.append(get_live_price(self.ticker))
-			progress = round(i*100/DATA_LIMIT, 1)
-			print(f">>> Initialising data {progress}%", end="\r")
-			sleep(PERIOD_INTERVAL)
-		print(" "*50)
 
 	def buy(self, price, trade):
 		global ACCOUNT
@@ -277,7 +272,7 @@ class Trader:
 
 	def save_activity(self):
 		with open(self.ticker+".json", "w") as fp:
-			fp.write(json.dumps(self.database))
+			fp.write(json.dumps(self.database, indent=4))
 
 
 # Manages all the traders
@@ -286,7 +281,8 @@ class Master:
 		self.traders = deque()
 
 	# check if required directories exist, if not, make them
-	def validate_repo(self):
+	@staticmethod
+	def validate_repo():
 		today = datetime.date.today().strftime("%d-%m-%Y")
 		if not os.path.exists(".\\database"):
 			os.mkdir("database")
@@ -303,14 +299,10 @@ class Master:
 	# initialise traders
 	def init_traders(self):
 		print(">>> Traders are in Observation phase")
-		threads = deque()
-		for trader in self.traders:
-			t = Thread(target=trader.get_initial_data)
-			t.daemon = True
-			threads.append(t)
-			t.start()
-		for thread in threads:
-			thread.join()
+		for _ in range(DATA_LIMIT):
+			for trader in self.traders:
+				trader.get_initial_data()
+			sleep(PERIOD_INTERVAL)
 		print("\tStatus : Complete")
 		print("")
 
@@ -323,8 +315,10 @@ class Master:
 				for trader in self.traders:
 					trader.run()
 				sleep(PERIOD_INTERVAL)
-			except:
+			except Exception as e:
 				print("FATAL ERROR : Trading has been aborted")
+				print(e)
+				quit(0)
 			finally:
 				now = datetime.datetime.now(TZ)
 
@@ -334,7 +328,7 @@ class Master:
 		# load previous day's data
 		prev_data = json.loads(open("..\\user_info.json").read())
 		username = prev_data['username']
-		account_balance_prev = prev_data["ACCOUNT"]
+		account_balance_prev = prev_data["account_balance"]
 		# get new data from trader's database
 		account_balance_new = account_balance_prev*(1 - FEASIBLE_PERCENT) + ACCOUNT
 		profit = account_balance_new - account_balance_prev
@@ -356,7 +350,7 @@ class Master:
 			trader.save_activity()
 		# save master database
 		with open("..\\user_info.json", "w") as fp:
-			fp.write(json.dumps(new_data))
+			fp.write(json.dumps(new_data, indent=4))
 		# output profit
 		print(f"\n\nNet Profit : {profit} INR\n")
 		print(f'Stocks owned : {len(new_data["stocks_to_sell"])}')
@@ -388,7 +382,7 @@ if __name__ == "__main__":
 
 	# setup traders and begin trade
 	master = Master()
-	master.validate_repo()
+	Master.validate_repo()
 	master.lineup_traders(stocks_to_focus)
 	master.init_traders()
 	master.start_trading()
