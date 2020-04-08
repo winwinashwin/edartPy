@@ -282,7 +282,7 @@ class Master:
 
 	# check if required directories exist, if not, make them
 	@staticmethod
-	def validate_repo(self):
+	def validate_repo():
 		today = datetime.date.today().strftime("%d-%m-%Y")
 		if not os.path.exists(".\\database"):
 			os.mkdir("database")
