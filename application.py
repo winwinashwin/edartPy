@@ -282,7 +282,7 @@ class Master:
 
 	# check if required directories exist, if not, make them
 	@staticmethod
-	def validate_repo():
+	def validate_repo(self):
 		today = datetime.date.today().strftime("%d-%m-%Y")
 		if not os.path.exists(".\\database"):
 			os.mkdir("database")
@@ -377,12 +377,15 @@ if __name__ == "__main__":
 	# find relevant stocks to focus on
 	print(">>> Finding stocks to focus on .....")
 	stocks_to_focus = fetch_stocks()
+	print("")
+	print(stocks_to_focus)
+	print("")
 	print("\tStatus : Complete")
 	print("")
 
 	# setup traders and begin trade
 	master = Master()
-	Master.validate_repo()
+	master.validate_repo()
 	master.lineup_traders(stocks_to_focus)
 	master.init_traders()
 	master.start_trading()
