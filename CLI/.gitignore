@@ -1,0 +1,9 @@
+# virtual env
+venv/*
+
+# trial script
+trial.py
+
+# cache
+__pycache__/*
+
