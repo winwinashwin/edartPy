@@ -138,7 +138,8 @@ def get_value(ref, x_src, x):
 
 
 class Trader:
-	def __init__(self, ticker):
+	def __init__(self, number, ticker):
+		self.number = number
 		self.ticker = ticker
 		# store x values, equivalent to time
 		self.time = [i for i in range(-25, DATA_LIMIT + 27)]
@@ -183,7 +184,7 @@ class Trader:
 		try:
 			self.price.append(get_live_price(self.ticker))
 		except:
-			print("[WARNING] : Exception in getting initial data, trying recursion")
+			print(f"[WARNING] [Trader #{self.number} {self.ticker}]: Exception in getting initial data, trying recursion")
 			self.get_initial_data()
 
 	def buy(self, price, trade):
@@ -211,7 +212,7 @@ class Trader:
 			new_price = get_live_price(self.ticker)
 			self.price.append(new_price)
 		except:
-			print("[WARNING] Exception in updating price, trying recursion")
+			print(f"[WARNING] [Trader #{self.number} {self.ticker}] : Exception in updating price, trying recursion")
 			self.update_price()
 
 	def update_data(self):
@@ -267,7 +268,7 @@ class Trader:
 			self.IN_LONG_TRADE = True
 			self.STOCKS_TO_SELL += 1
 		if not cond3:
-			print("[FATAL ERROR] Oops! Out of cash!")
+			print(f"[FATAL ERROR] [Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
 		# If all conditions are right, short trade entry
 		if cond2 and not self.IN_SHORT_TRADE:
 			self.sell(curr_price, "SHORT")
@@ -291,7 +292,7 @@ class Trader:
 				self.IN_SHORT_TRADE = False
 				self.STOCKS_TO_BUY_BACK -= 1
 			if not cond3:
-				print("[FATAL ERROR] Oops! Out of cash!")
+				print(f"[FATAL ERROR] [Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
 
 	# group updation and decision call for convenience
 	def run(self):
@@ -321,8 +322,10 @@ class Master:
 
 	# allocate tickers to traders
 	def lineup_traders(self, tickers):
+		count = 1
 		for ticker in tickers:
-			self.traders.append(Trader(ticker))
+			self.traders.append(Trader(count, ticker))
+			count += 1
 
 	# initialise traders
 	def init_traders(self):
