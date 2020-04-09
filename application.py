@@ -1,5 +1,4 @@
 # import necessary libraries
-from yahoo_fin.stock_info import get_live_price
 from bs4 import BeautifulSoup
 from collections import deque
 from time import sleep
@@ -35,7 +34,7 @@ BUFFER_PERCENT = 0.09
 # number of observations of prices during initialisation phase, minimum value of 80
 DATA_LIMIT = 80
 # interval of each period, in seconds
-PERIOD_INTERVAL = 60  # 1 minute
+PERIOD_INTERVAL = 60
 # percentage of account_balance to be considered for trading
 FEASIBLE_PERCENT = 0.2  # 20%
 
@@ -53,6 +52,25 @@ PACKUP = datetime.time(hour=15, minute=15, second=0)
 ACCOUNT = json.loads(open("database/user_info.json").read())["account_balance"] * FEASIBLE_PERCENT
 
 ##############################################################
+
+BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/"
+HEADERS = {
+	"user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36"
+	}
+
+##############################################################
+
+
+def get_live_price(ticker):
+	resp = requests.get(url=BASE_URL + ticker, headers=HEADERS)
+	data = resp.json()
+	frame = data["chart"]["result"][0]["indicators"]["quote"][0]['close']
+	while True:
+		if not bool(frame[-1]):
+			frame.pop()
+		else:
+			break
+	return float(frame[-1])
 
 
 # function to check if market is open or closed
@@ -100,9 +118,10 @@ def fetch_stocks():
 			break
 		else:
 			row_data = tr.find_all('td')
-			price = float(row_data[2].text.strip().replace(',', ""))
+			ticker = row_data[0].text.strip()
+			price = get_live_price(ticker)
 			# split ticker for checking if same stock of different stock exchange is selected or not
-			stock_name, stock_ex = row_data[0].text.strip().split(".")
+			stock_name, stock_ex = ticker.split(".")
 			if price >= PENNY_STOCK_THRESHOLD and stock_name not in stocks_temp:
 				stocks_temp[stock_name] = stock_ex
 				count += 1
@@ -161,8 +180,11 @@ class Trader:
 
 	# initialise Ichimoku indicator
 	def get_initial_data(self):
-		for i in range(DATA_LIMIT):
+		try:
 			self.price.append(get_live_price(self.ticker))
+		except:
+			print("[WARNING] : Exception in getting initial data, trying recursion")
+			self.get_initial_data()
 
 	def buy(self, price, trade):
 		global ACCOUNT
@@ -184,11 +206,17 @@ class Trader:
 			"sold at": price
 		}
 
-	# function to update data with new price
+	def update_price(self):
+		try:
+			new_price = get_live_price(self.ticker)
+			self.price.append(new_price)
+		except:
+			print("[WARNING] Exception in updating price, trying recursion")
+			self.update_price()
+
 	def update_data(self):
-		new_price = get_live_price(self.ticker)
+		self.update_price()
 		self.time.append(self.time[-1] + 1)
-		self.price.append(new_price)
 		self.time.__delitem__(0)
 		self.price.__delitem__(0)
 
@@ -239,7 +267,7 @@ class Trader:
 			self.IN_LONG_TRADE = True
 			self.STOCKS_TO_SELL += 1
 		if not cond3:
-			print("Oops! Out of cash!")
+			print("[FATAL ERROR] Oops! Out of cash!")
 		# If all conditions are right, short trade entry
 		if cond2 and not self.IN_SHORT_TRADE:
 			self.sell(curr_price, "SHORT")
@@ -263,7 +291,7 @@ class Trader:
 				self.IN_SHORT_TRADE = False
 				self.STOCKS_TO_BUY_BACK -= 1
 			if not cond3:
-				print("Oops! Out of cash!")
+				print("[FATAL ERROR] Oops! Out of cash!")
 
 	# group updation and decision call for convenience
 	def run(self):
@@ -298,25 +326,26 @@ class Master:
 
 	# initialise traders
 	def init_traders(self):
-		print(">>> Traders are in Observation phase")
-		for _ in range(DATA_LIMIT):
+		print("[INFO] >>> Traders are in Observation phase")
+		for i in range(DATA_LIMIT):
 			for trader in self.traders:
 				trader.get_initial_data()
+			print(f"[INFO] \tCompleted observation {i + 1}/{DATA_LIMIT}")
 			sleep(PERIOD_INTERVAL)
-		print("\tStatus : Complete")
+		print("[INFO] \tStatus : Complete")
 		print("")
 
 	# trading begins
 	def start_trading(self):
 		now = datetime.datetime.now(TZ)
-		print(">>> Trading has begun")
+		print("[INFO] >>> Trading has begun")
 		while now.time() < PACKUP:
 			try:
 				for trader in self.traders:
 					trader.run()
 				sleep(PERIOD_INTERVAL)
 			except Exception as e:
-				print("FATAL ERROR : Trading has been aborted")
+				print("[FATAL ERROR] Trading has been aborted")
 				print(e)
 				quit(0)
 			finally:
@@ -352,35 +381,34 @@ class Master:
 		with open("..\\user_info.json", "w") as fp:
 			fp.write(json.dumps(new_data, indent=4))
 		# output profit
-		print(f"\n\nNet Profit : {profit} INR\n")
-		print(f'Stocks owned : {len(new_data["stocks_to_sell"])}')
-		print(f'Stocks owed : {len(new_data["stocks_to_buy_back"])}')
+		print(f"[INFO] \n\nNet Profit : {profit} INR\n")
+		print(f'[INFO] Stocks owned : {len(new_data["stocks_to_sell"])}')
+		print(f'[INFO] Stocks owed : {len(new_data["stocks_to_buy_back"])}')
 
 
-if __name__ == "__main__":
+def main():
 	# make sure that market is open
+
 	if is_open():
 		pass
 	else:
-		print(">>> Market is closed at the moment, aborting.")
+		print("[ERROR] >>> Market is closed at the moment, aborting.")
 		print("")
 		quit(0)
 
-	# load maximum amount allowed to trade
-
 	# allow market to settle to launch Ichimoku strategy
-	print(f">>> Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
-	print(f"\tExpected release : after {IDLE_DELAY//60} minutes")
+	print(f"[INFO] >>> Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
+	print(f"[INFO] \tExpected release : after {IDLE_DELAY//60} minutes")
 	print("")
 	sleep(IDLE_DELAY)
 
 	# find relevant stocks to focus on
-	print(">>> Finding stocks to focus on .....")
+	print("[INFO] >>> Finding stocks to focus on .....")
 	stocks_to_focus = fetch_stocks()
 	print("")
 	print(stocks_to_focus)
 	print("")
-	print("\tStatus : Complete")
+	print("[INFO] \tStatus : Complete")
 	print("")
 
 	# setup traders and begin trade
@@ -391,8 +419,12 @@ if __name__ == "__main__":
 	master.start_trading()
 
 	# trading in over by this point
-	print(">>> Trading complete")
+	print("[INFO] >>> Trading complete")
 
 	# initiate packup
 	master.packup()
 	quit(0)
+
+
+if __name__ == "__main__":
+	main()
