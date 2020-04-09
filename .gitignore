@@ -15,3 +15,7 @@ test_data/*
 
 # database for storing user activity and demat account info
 database/*
+
+# CLI dir, for testing of appearance and cli feature improvement
+CLI/*
+
