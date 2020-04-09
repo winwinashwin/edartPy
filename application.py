@@ -1,4 +1,5 @@
 # import necessary libraries
+from clint.textui import puts, colored
 from bs4 import BeautifulSoup
 from collections import deque
 from time import sleep
@@ -9,6 +10,30 @@ import pytz
 import json
 import os
 
+
+class Notify:
+	def info(message):
+		puts(colored.green("[ MESSAGE ]  ") + message)
+
+	def warn(message):
+		puts(colored.cyan("[ WARNING ]  ") + message)
+
+	def fatal(message):
+		puts(colored.red("[  FATAL  ]  ") + message)
+
+
+##############################################################
+
+HEADING = '''
+                        __           __  ____
+              ___  ____/ /___ ______/ /_/ __ \\__  __
+             / _ \\/ __  / __ `/ ___/ __/ /_/ / / / /
+            /  __/ /_/ / /_/ / /  / /_/ ____/ /_/ /
+            \\___/\\__,_/\\__,_/_/   \\__/_/    \\__, /
+                                           /____/
+
+'''
+puts(colored.yellow(HEADING))
 
 ##############################################################
 
@@ -34,7 +59,7 @@ BUFFER_PERCENT = 0.09
 # number of observations of prices during initialisation phase, minimum value of 80
 DATA_LIMIT = 80
 # interval of each period, in seconds
-PERIOD_INTERVAL = 60
+PERIOD_INTERVAL = 0  # 60
 # percentage of account_balance to be considered for trading
 FEASIBLE_PERCENT = 0.2  # 20%
 
@@ -43,13 +68,16 @@ FEASIBLE_PERCENT = 0.2  # 20%
 # time delay to check if market is open, in seconds
 DELAY = 300
 # delay in idle phase, in seconds
-IDLE_DELAY = 1800
+IDLE_DELAY = 0  # 1800
 # time to stop trading
 PACKUP = datetime.time(hour=15, minute=15, second=0)
 
 ##############################################################
-
-ACCOUNT = json.loads(open("database/user_info.json").read())["account_balance"] * FEASIBLE_PERCENT
+try:
+	ACCOUNT = json.loads(open("database/user_info.json").read())["account_balance"] * FEASIBLE_PERCENT
+except FileNotFoundError:
+	Notify.fatal("User info not found, Aborting.")
+	quit(1)
 
 ##############################################################
 
@@ -75,6 +103,7 @@ def get_live_price(ticker):
 
 # function to check if market is open or closed
 def is_open():
+	return True  # comment out
 	now = datetime.datetime.now(TZ)
 	# if a holiday
 	if now.strftime('%Y-%m-%d') in INDIA_HOLIDAYS:
@@ -184,7 +213,7 @@ class Trader:
 		try:
 			self.price.append(get_live_price(self.ticker))
 		except:
-			print(f"[WARNING] [Trader #{self.number} {self.ticker}]: Exception in getting initial data, trying recursion")
+			Notify.warn(f"[Trader #{self.number} {self.ticker}]: Exception in getting initial data, trying recursion")
 			self.get_initial_data()
 
 	def buy(self, price, trade):
@@ -212,7 +241,7 @@ class Trader:
 			new_price = get_live_price(self.ticker)
 			self.price.append(new_price)
 		except:
-			print(f"[WARNING] [Trader #{self.number} {self.ticker}] : Exception in updating price, trying recursion")
+			Notify.warn(f"[Trader #{self.number} {self.ticker}] : Exception in updating price, trying recursion")
 			self.update_price()
 
 	def update_data(self):
@@ -268,7 +297,7 @@ class Trader:
 			self.IN_LONG_TRADE = True
 			self.STOCKS_TO_SELL += 1
 		if not cond3:
-			print(f"[FATAL ERROR] [Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
+			Notify.fatal(f"[Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
 		# If all conditions are right, short trade entry
 		if cond2 and not self.IN_SHORT_TRADE:
 			self.sell(curr_price, "SHORT")
@@ -292,7 +321,7 @@ class Trader:
 				self.IN_SHORT_TRADE = False
 				self.STOCKS_TO_BUY_BACK -= 1
 			if not cond3:
-				print(f"[FATAL ERROR] [Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
+				Notify.fatal(f"[Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
 
 	# group updation and decision call for convenience
 	def run(self):
@@ -329,26 +358,26 @@ class Master:
 
 	# initialise traders
 	def init_traders(self):
-		print("[INFO] >>> Traders are in Observation phase")
+		Notify.info("Traders are in Observation phase")
 		for i in range(DATA_LIMIT):
 			for trader in self.traders:
 				trader.get_initial_data()
-			print(f"[INFO] \tCompleted observation {i + 1}/{DATA_LIMIT}")
+			Notify.info(f"\t\tCompleted observation {i + 1}/{DATA_LIMIT}")
 			sleep(PERIOD_INTERVAL)
-		print("[INFO] \tStatus : Complete")
+		Notify.info("\tStatus : Complete")
 		print("")
 
 	# trading begins
 	def start_trading(self):
 		now = datetime.datetime.now(TZ)
-		print("[INFO] >>> Trading has begun")
+		Notify.info("Trading has begun")
 		while now.time() < PACKUP:
 			try:
 				for trader in self.traders:
 					trader.run()
 				sleep(PERIOD_INTERVAL)
 			except Exception as e:
-				print("[FATAL ERROR] Trading has been aborted")
+				Notify.fatal("Trading has been aborted")
 				print(e)
 				quit(0)
 			finally:
@@ -384,34 +413,35 @@ class Master:
 		with open("..\\user_info.json", "w") as fp:
 			fp.write(json.dumps(new_data, indent=4))
 		# output profit
-		print(f"[INFO] \n\nNet Profit : {profit} INR\n")
-		print(f'[INFO] Stocks owned : {len(new_data["stocks_to_sell"])}')
-		print(f'[INFO] Stocks owed : {len(new_data["stocks_to_buy_back"])}')
+		Notify.info(f"\n\nNet Profit : {profit} INR\n")
+		Notify.info(f'Stocks owned : {len(new_data["stocks_to_sell"])}')
+		Notify.info(f'Stocks owed : {len(new_data["stocks_to_buy_back"])}')
 
 
 def main():
+
 	# make sure that market is open
 
 	if is_open():
 		pass
 	else:
-		print("[ERROR] >>> Market is closed at the moment, aborting.")
+		Notify.fatal("Market is closed at the moment, aborting.")
 		print("")
 		quit(0)
 
 	# allow market to settle to launch Ichimoku strategy
-	print(f"[INFO] >>> Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
-	print(f"[INFO] \tExpected release : after {IDLE_DELAY//60} minutes")
+	Notify.info(f"Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
+	Notify.info(f"\tExpected release : after {IDLE_DELAY//60} minutes")
 	print("")
 	sleep(IDLE_DELAY)
 
 	# find relevant stocks to focus on
-	print("[INFO] >>> Finding stocks to focus on .....")
+	Notify.info("Finding stocks to focus on .....")
 	stocks_to_focus = fetch_stocks()
 	print("")
 	print(stocks_to_focus)
 	print("")
-	print("[INFO] \tStatus : Complete")
+	Notify.info("\tStatus : Complete")
 	print("")
 
 	# setup traders and begin trade
@@ -422,7 +452,7 @@ def main():
 	master.start_trading()
 
 	# trading in over by this point
-	print("[INFO] >>> Trading complete")
+	Notify.info("Trading complete")
 
 	# initiate packup
 	master.packup()
