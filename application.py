@@ -18,7 +18,7 @@ TZ = pytz.timezone('Asia/Calcutta')
 # set holidays
 INDIA_HOLIDAYS = holidays.India()
 # set market open time
-OPEN_TIME = datetime.time(hour=9, minute=20, second=0)
+OPEN_TIME = datetime.time(hour=9, minute=15, second=0)
 # set market close time
 CLOSE_TIME = datetime.time(hour=15, minute=30, second=0)
 
