@@ -274,8 +274,7 @@ class Trader:
     def update_data(self):
         self.update_price()
         self.time.append(self.time[-1] + 1)
-        self.time.__delitem__(0)
-        self.price.__delitem__(0)
+        del self.time[0], self.price[0]
 
     # observe indicator and decide buy and sell
     def make_decision(self):
@@ -355,7 +354,7 @@ class Trader:
         self.update_data()
         self.make_decision()
 
-    def save_activity(self):
+    def __del__(self):
         with open(self.ticker + ".json", "w") as fp:
             fp.write(json.dumps(self.database, indent=4))
 
@@ -412,7 +411,7 @@ class Master:
                 now = datetime.datetime.now(TZ)
 
     # save master data
-    def packup(self):
+    def __del__(self):
         global ACCOUNT
         # load previous day's data
         prev_data = json.loads(open("..\\user_info.json").read())
@@ -436,7 +435,7 @@ class Master:
             if trader.IN_SHORT_TRADE:
                 new_data["stocks_to_buy_back"][trader.ticker]["buffer_price"] = trader.price_for_buffer
             # save trader database in respective files
-            trader.save_activity()
+            del trader
         # save master database
         with open("..\\user_info.json", "w") as fp:
             fp.write(json.dumps(new_data, indent=4))
@@ -482,7 +481,7 @@ def main():
     Notify.info("Trading complete")
 
     # initiate packup
-    master.packup()
+    del master
     quit(0)
 
 
