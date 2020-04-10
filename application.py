@@ -350,7 +350,7 @@ class Trader:
             if not cond3:
                 Notify.fatal(f"[Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
 
-    # group updation and decision call for convenience
+    # group update and decision call for convenience
     def run(self):
         self.update_data()
         self.make_decision()
