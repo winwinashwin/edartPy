@@ -4,7 +4,7 @@
 
 Description
 -----------
-    * A fully automated Trading bot built in python. The bot uses the Ichimoku Indicator and employs Kumo Breakout strategy for generating buy and sell calls.
+A fully automated Trading bot built in python. The bot uses the Ichimoku Indicator and employs Kumo Breakout strategy for generating buy and sell calls.
 
 ### Workflow
 Will fill later
