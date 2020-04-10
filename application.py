@@ -1,4 +1,5 @@
 # import necessary libraries
+from OpenSSL.SSL import SysCallError
 from clint.textui import puts, colored
 from bs4 import BeautifulSoup
 from collections import deque
@@ -81,7 +82,7 @@ try:
     ACCOUNT = json.loads(open("database/user_info.json").read())["account_balance"] * FEASIBLE_PERCENT
 except FileNotFoundError:
     Notify.fatal('User info not found, Aborting.')
-    quit(1)
+    quit(0)
 
 ##############################################################
 
@@ -238,7 +239,7 @@ class Trader:
     def get_initial_data(self):
         try:
             self.price.append(get_live_price(self.ticker))
-        except:
+        except SysCallError:
             Notify.warn(f"[Trader #{self.number} {self.ticker}]: Exception in getting initial data, trying recursion")
             self.get_initial_data()
 
@@ -266,7 +267,7 @@ class Trader:
         try:
             new_price = get_live_price(self.ticker)
             self.price.append(new_price)
-        except:
+        except SysCallError:
             Notify.warn(f"[Trader #{self.number} {self.ticker}] : Exception in updating price, trying recursion")
             self.update_price()
 
@@ -486,4 +487,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        Notify.fatal("Operation cancelled by user.")
+        quit(0)
