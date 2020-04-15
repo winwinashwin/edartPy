@@ -30,8 +30,11 @@ NUM_OF_STOCKS_TO_FOCUS = 5
 PENNY_STOCK_THRESHOLD = 50
 # interval of each period, in seconds
 PERIOD_INTERVAL = 60
+# delay in idle phase, in seconds
+IDLE_DELAY = 1800
 
 ##############################################################
+
 
 class Notify:
     @staticmethod
@@ -63,7 +66,7 @@ class Miner:
             self.run()
         else:
             now = datetime.datetime.now(TZ)
-            self.subData[now.strftime('%Y-%m-%d')] = price
+            self.subData[now.strftime('%H:%M:%S')] = price
             # Notify.info(f"[Miner #{self.number} {self.ticker}]: Exception resolved")
 
     def __del__(self):
@@ -92,6 +95,7 @@ class Master:
     def shutdown(self):
         for miner in self.miners:
             miner.shutdown()
+
 
 def val_repo():
     if not os.path.exists("./database"):
@@ -158,26 +162,63 @@ def fetch_stocks():
 
 def main():
     val_repo()
+
     while not is_open():
         Notify.warn("Market closed at the moment, next check after 2 minutes")
         sleep(120)
 
+    Notify.info(f"Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
+    Notify.info(f"\tExpected release : after {IDLE_DELAY // 60} minutes")
+    print("")
+    sleep(IDLE_DELAY)
+
     try:
+        Notify.info("Fetching stocks...")
         stocks = fetch_stocks()
-    except:
+    except Exception as e:
         stocks = None
         Notify.fatal("Error in fetching stocks. Aborting...")
+        print(e)
         quit(0)
 
     master = Master()
+    print(stocks)
+    print("")
     master.load_miners(stocks)
-
-
+    print("")
+    Notify.info("Collecting stock data...")
+    print("")
     now = datetime.datetime.now(TZ)
     iteration = 1
-    while now.time() < CLOSE_TIME):
+    # for _ in range(5):
+    while now.time() < CLOSE_TIME:
         master.run(iteration)
+        now = datetime.datetime.now(TZ)
         iteration += 1
+        sleep(PERIOD_INTERVAL)
 
     master.shutdown()
+    print("")
     Notify.info("Operation completed successfully")
+
+
+if __name__ == "__main__":
+
+    HEADING = '''
+                            __           __  ____
+                  ___  ____/ /___ ______/ /_/ __ \\__  __
+                 / _ \\/ __  / __ `/ ___/ __/ /_/ / / / /
+                /  __/ /_/ / /_/ / /  / /_/ ____/ /_/ /
+                \\___/\\__,_/\\__,_/_/   \\__/_/    \\__, /
+                                               /____/
+
+    '''
+    puts(colored.yellow(HEADING))
+
+    try:
+        main()
+    except KeyboardInterrupt:
+        Notify.fatal("Operation cancelled by user :(")
+    except Exception as e:
+        Notify.fatal("Fatal error in main function execution, Aborting")
+        print(e)
