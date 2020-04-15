@@ -1,7 +1,7 @@
 # import necessary libraries
 from OpenSSL.SSL import SysCallError
 from clint.textui import puts, colored
-from yahoo_fin.stock_info import get_live_price
+from library.stock_info import get_live_price
 from bs4 import BeautifulSoup
 from collections import deque
 from time import sleep
