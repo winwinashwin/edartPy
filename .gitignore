@@ -19,3 +19,5 @@ database/*
 # CLI dir, for testing of appearance and cli feature improvement
 CLI/*
 
+# zip files
+*.zip
