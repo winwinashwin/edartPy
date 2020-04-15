@@ -162,15 +162,17 @@ def fetch_stocks():
 
 def main():
     val_repo()
-
+    """
     while not is_open():
         Notify.warn("Market closed at the moment, next check after 2 minutes")
         sleep(120)
-
-    Notify.info(f"Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
-    Notify.info(f"\tExpected release : after {IDLE_DELAY // 60} minutes")
-    print("")
-    sleep(IDLE_DELAY)
+    """
+    confo = input("Sleep ? (y/n) : ").lower()
+    if confo == "y":
+        Notify.info(f"Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
+        Notify.info(f"\tExpected release : after {IDLE_DELAY // 60} minutes")
+        print("")
+        sleep(IDLE_DELAY)
 
     try:
         Notify.info("Fetching stocks...")
