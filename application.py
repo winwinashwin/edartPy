@@ -156,13 +156,13 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + ' ' * (length - filledLength)
     print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end=printEnd)
-    # Print New Line on Complete
+    # print new line on complete
     if iteration == total:
         print()
 
 
-# function to check if market is open or closed
 def is_open():
+
     now = datetime.datetime.now(TZ)
     # if a holiday
     if now.strftime('%Y-%m-%d') in INDIA_HOLIDAYS:
