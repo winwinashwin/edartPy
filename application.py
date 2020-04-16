@@ -16,15 +16,15 @@ import os
 
 class Notify:
     @staticmethod
-    def info(message: 'str'):
+    def info(message: str) -> None:
         puts(colored.green("[ MESSAGE ]  ") + message)
 
     @staticmethod
-    def warn(message: 'str'):
+    def warn(message: str) -> None:
         puts(colored.cyan("[ WARNING ]  ") + message)
 
     @staticmethod
-    def fatal(message: 'str'):
+    def fatal(message: str) -> None:
         puts(colored.red("[  FATAL  ]  ") + message)
 
 
@@ -76,7 +76,7 @@ DELAY = 300
 # delay in idle phase, in seconds
 IDLE_DELAY = 1800
 # time to stop trading
-PACKUP = datetime.time(hour=15, minute=15, second=0)
+PACK_UP = datetime.time(hour=15, minute=15, second=0)
 
 ##############################################################
 
@@ -162,7 +162,6 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
 
 
 def is_open():
-
     now = datetime.datetime.now(TZ)
     # if a holiday
     if now.strftime('%Y-%m-%d') in INDIA_HOLIDAYS:
@@ -222,7 +221,7 @@ def fetch_stocks():
 
 
 # helper function for trader
-def get_value(ref, x_src, x):
+def get_value(ref: list, x_src: list, x: float) -> float:
     return ref[x_src.index(x)]
 
 
@@ -439,7 +438,7 @@ class Master:
         now = datetime.datetime.now(TZ)
         Notify.info("Trading has begun")
         if not Tmode:
-            while now.time() < PACKUP or DEV_MODE:
+            while now.time() < PACK_UP or DEV_MODE:
                 try:
                     for trader in self.traders:
                         trader.run()
