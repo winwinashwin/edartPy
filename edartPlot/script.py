@@ -95,6 +95,8 @@ class Ichimoku:
         plt.ylabel('y - axis')
         plt.title('ICHIMOKU - ' + self.ticker)
         plt.legend()
+        filepath = ".\\"
+        plt.savefig(filename, bbox_inches='tight')
         plt.show()
 
 
