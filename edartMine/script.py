@@ -62,7 +62,10 @@ class Miner:
         try:
             price = get_live_price(self.ticker)
         except SysCallError:
-            Notify.warn(f"[Miner #{self.number} {self.ticker}]: Exception in getting initial data, trying recursion")
+            Notify.warn(f"[Miner #{self.number} {self.ticker}]: Encountered SysCallError while fetching data, trying recursion")
+            self.run()
+        except Exception as e:
+            Notify.warn(f"[Miner #{self.number} {self.ticker}]: Exception while fetching data, trying recursion")
             self.run()
         else:
             now = datetime.datetime.now(TZ)

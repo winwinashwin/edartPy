@@ -273,6 +273,9 @@ class Trader:
         try:
             self.price.append(get_live_price(self.ticker))
         except SysCallError:
+            Notify.warn(f"[Trader #{self.number} {self.ticker}]: Encountered SysCallError while initialising parameters, trying recursion")
+            self.get_initial_data()
+        except Exception as e:
             Notify.warn(f"[Trader #{self.number} {self.ticker}]: Exception in getting initial data, trying recursion")
             self.get_initial_data()
 
@@ -301,6 +304,9 @@ class Trader:
             new_price = get_live_price(self.ticker)
             self.price.append(new_price)
         except SysCallError:
+            Notify.warn(f"[Trader #{self.number} {self.ticker}] : Encountered SysCallError in updating price, trying recursion")
+            self.update_price()
+        except Exception as e:
             Notify.warn(f"[Trader #{self.number} {self.ticker}] : Exception in updating price, trying recursion")
             self.update_price()
 
