@@ -4,12 +4,6 @@ __pycache__/*
 # virtual environment
 venv/*
 
-# script for running trials
-test.py
-
-# my_fin package
-my_fin/*
-
 # dataset for testing purposes
 test_data/*
 
@@ -23,4 +17,4 @@ CLI/*
 *.zip
 
 # trials
-Trials/*
+trials/*
