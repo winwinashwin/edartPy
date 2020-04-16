@@ -3,8 +3,10 @@ from OpenSSL.SSL import SysCallError
 from clint.textui import puts, colored
 from bs4 import BeautifulSoup
 from collections import deque
+from library.si import get_live_price
 from time import sleep
 import requests
+import argparse
 import holidays
 import datetime
 import pytz
@@ -93,6 +95,49 @@ HEADERS = {
 
 ##############################################################
 
+parser = argparse.ArgumentParser(prog="application.py",
+                                 description="A fully automated Pythonic trading bot\n\nAuthor : Ashwin A Nayar",
+                                 epilog="Time for some real money !",
+                                 formatter_class=argparse.RawTextHelpFormatter
+                                 )
+
+parser.add_argument("--delay", type=int, default=IDLE_DELAY,
+                    help="Duration of Idle Phase, in seconds")
+
+parser.add_argument("-nd", action="store_true",
+                    help="Skip Idle Phase, not recommended")
+
+parser.add_argument("-np", action="store_true",
+                    help="Set period interval to zero, not recommended")
+
+parser.add_argument("-t", action="store_true",
+                    help='Run script in trial mode, for debugging purposes')
+
+args = parser.parse_args()
+
+if args.nd:
+    if args.delay != IDLE_DELAY:
+        Notify.fatal("Invalid set of arguments given. Aborting")
+    else:
+        IDLE_DELAY = 0
+else:
+    if args.delay != IDLE_DELAY:
+        IDLE_DELAY = args.delay
+
+if args.np:
+    PERIOD_INTERVAL = 0
+
+if args.t:
+    IDLE_DELAY = 1
+    PERIOD_INTERVAL = 0
+
+# developer mode
+DEV_MODE = args.nd and args.np
+if DEV_MODE:
+    PENNY_STOCK_THRESHOLD = 0
+
+##############################################################
+
 
 def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r"):
     """
@@ -114,18 +159,6 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
     # Print New Line on Complete
     if iteration == total:
         print()
-
-
-def get_live_price(ticker):
-    resp = requests.get(url=BASE_URL + ticker, headers=HEADERS)
-    data = resp.json()
-    frame = data["chart"]["result"][0]["indicators"]["quote"][0]['close']
-    while True:
-        if not bool(frame[-1]):
-            frame.pop()
-        else:
-            break
-    return float(frame[-1])
 
 
 # function to check if market is open or closed
@@ -383,32 +416,42 @@ class Master:
             count += 1
 
     # initialise traders
-    def init_traders(self):
+    def init_traders(self, Tmode=False):
         Notify.info("Traders are in Observation phase")
-        print_progress_bar(0, 80, prefix='\tProgress:', suffix='Complete', length=40)
-        for i in range(DATA_LIMIT):
-            for trader in self.traders:
-                trader.get_initial_data()
-            print_progress_bar(i + 1, 80, prefix='\tProgress:', suffix='Complete', length=40)
-            sleep(PERIOD_INTERVAL)
+        if not Tmode:
+            print_progress_bar(0, 80, prefix='\tProgress:', suffix='Complete', length=40)
+            for i in range(DATA_LIMIT):
+                for trader in self.traders:
+                    trader.get_initial_data()
+                print_progress_bar(i + 1, 80, prefix='\tProgress:', suffix='Complete', length=40)
+                sleep(PERIOD_INTERVAL)
         Notify.info("\tStatus : Complete")
         print("")
 
     # trading begins
-    def start_trading(self):
+    def start_trading(self, Tmode=False):
         now = datetime.datetime.now(TZ)
         Notify.info("Trading has begun")
-        while now.time() < PACKUP:
-            try:
-                for trader in self.traders:
-                    trader.run()
-                sleep(PERIOD_INTERVAL)
-            except Exception as e:
-                Notify.fatal("Trading has been aborted")
-                print(e)
-                quit(0)
-            finally:
-                now = datetime.datetime.now(TZ)
+        if not Tmode:
+            while now.time() < PACKUP or DEV_MODE:
+                try:
+                    for trader in self.traders:
+                        trader.run()
+                    sleep(PERIOD_INTERVAL)
+                except Exception as e:
+                    Notify.fatal("Trading has been aborted")
+                    print(e)
+                    quit(0)
+                finally:
+                    now = datetime.datetime.now(TZ)
+        else:
+            Notify.info("Confirming access to live stock price...")
+            for trader in self.traders:
+                try:
+                    get_live_price(trader.ticker)
+                except Exception as e:
+                    Notify.fatal("Error in fetching live stock price. Aborting")
+                    print(e)
 
     # save master data
     def __del__(self):
@@ -416,6 +459,7 @@ class Master:
         # load previous day's data
         prev_data = json.loads(open("..\\user_info.json").read())
         username = prev_data['username']
+        # debug
         account_balance_prev = prev_data["account_balance"]
         # get new data from trader's database
         account_balance_new = account_balance_prev * (1 - FEASIBLE_PERCENT) + ACCOUNT
@@ -430,10 +474,10 @@ class Master:
         for trader in self.traders:
             # check owned stocks
             if trader.IN_LONG_TRADE:
-                new_data["stocks_to_sell"][trader.ticker]["buffer_price"] = trader.price_for_buffer
+                new_data["stocks_to_sell"][trader.ticker] = {"buffer_price": trader.price_for_buffer}
             # check owed stocks
             if trader.IN_SHORT_TRADE:
-                new_data["stocks_to_buy_back"][trader.ticker]["buffer_price"] = trader.price_for_buffer
+                new_data["stocks_to_buy_back"][trader.ticker] = {"buffer_price": trader.price_for_buffer}
             # save trader database in respective files
             del trader
         # save master database
@@ -447,19 +491,25 @@ class Master:
 
 def main():
     # make sure that market is open
-
-    if is_open():
-        pass
+    if not DEV_MODE:
+        if is_open():
+            pass
+        else:
+            Notify.fatal("Market is closed at the moment, aborting.")
+            print("")
+            quit(0)
     else:
-        Notify.fatal("Market is closed at the moment, aborting.")
-        print("")
-        quit(0)
+        Notify.warn("You are in developer mode, if not intended, please quit.")
+        input()
 
     # allow market to settle to launch Ichimoku strategy
-    Notify.info(f"Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
-    Notify.info(f"\tExpected release : after {IDLE_DELAY // 60} minutes")
-    print("")
-    sleep(IDLE_DELAY)
+    if IDLE_DELAY == 0:
+        Notify.info("Skipped Idle phase")
+    else:
+        Notify.info(f"Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
+        Notify.info(f"\tExpected release : after {IDLE_DELAY // 60} minutes")
+        print("")
+        sleep(IDLE_DELAY)
 
     # find relevant stocks to focus on
     Notify.info("Finding stocks to focus on .....")
@@ -474,8 +524,8 @@ def main():
     master = Master()
     master.validate_repo()
     master.lineup_traders(stocks_to_focus)
-    master.init_traders()
-    master.start_trading()
+    master.init_traders(args.t)
+    master.start_trading(args.t)
 
     # trading in over by this point
     Notify.info("Trading complete")

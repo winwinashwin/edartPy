@@ -9,7 +9,7 @@ import json
 def show_files():
     for _, _, files in os.walk("database"):
         for file in files:
-            print(file)
+            print(file.rstrip(".json"))
 
 
 class Ichimoku:
@@ -17,7 +17,7 @@ class Ichimoku:
         style.use("seaborn")
         self.ticker = ""
         self.data = list()
-        self.len_data = len(self.data)
+        self.len_data = 0
         self.tenkan_data = []
         self.kijun_data = []
         self.chikou_data = self.data
@@ -25,12 +25,13 @@ class Ichimoku:
         self.senkou_A_data = list()
 
     def from_file(self, filename):
-        path = ".\\database\\" + filename
+        path = ".\\database\\" + filename + ".json"
         with open(path, "r") as fp:
             src = json.loads(fp.read())
         self.ticker = src['ticker']
         src = src['data']
         self.data = [src[key] for key in src]
+        self.len_data = len(self.data)
 
     def prepare_data(self):
         # tenkan
@@ -43,6 +44,7 @@ class Ichimoku:
             kijun_src = self.data[i:i + 26]
             self.kijun_data.append((max(kijun_src) + min(kijun_src)) / 2)
 
+        self.chikou_data = self.data
         self.senkou_A_data = [((self.tenkan_data[i+17] + self.kijun_data[i])/2) for i in range(self.len_data - 26)]
 
         # senkou B
@@ -52,8 +54,8 @@ class Ichimoku:
 
     def plot_data(self):
         # real time data
-        x1 = [i for i in range(1, self.len_data + 1)]
-        y1 = self.data
+        x1 = np.array([i for i in range(1, self.len_data + 1)])
+        y1 = np.array(self.data)
         plt.plot(x1, y1, label="LIVE", color='#000000', linewidth=0.7)
 
         # tenkan plot
@@ -99,8 +101,10 @@ class Ichimoku:
 def plot(file):
     ichPlot = Ichimoku()
     ichPlot.from_file(file)
+    ichPlot.prepare_data()
     ichPlot.plot_data()
 
 
 if __name__ == "__main__":
     show_files()
+    plot("ZUARIGLOB.BO")
