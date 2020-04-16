@@ -162,6 +162,13 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
 
 
 def is_open():
+    """
+        Function to check if market is open at the moment
+
+    Returns:
+        True if market is open, False otherwise
+
+    """
     now = datetime.datetime.now(TZ)
     # if a holiday
     if now.strftime('%Y-%m-%d') in INDIA_HOLIDAYS:
@@ -175,8 +182,13 @@ def is_open():
     return True
 
 
-# returns a list of stocks to focus on
 def fetch_stocks():
+    """
+        Find relevant stocks to focus on for trading
+    Returns:
+        Deque of tickers of relevant stocks
+
+    """
     # url to grab data from
     url = f'https://in.finance.yahoo.com/gainers?count={NUM_OF_STOCKS_TO_SEARCH}'
     # request header
@@ -220,8 +232,17 @@ def fetch_stocks():
     return stocks
 
 
-# helper function for trader
 def get_value(ref: list, x_src: list, x: float) -> float:
+    """
+        Helper function for traders, used to find Ichimoku components corresponding to entry from other components or price
+    Args:
+        ref: iterable from which corresponding entry should be found
+        x_src: iterable containing param x
+        x: an item, maybe a component value, maybe price
+
+    Returns:
+
+    """
     return ref[x_src.index(x)]
 
 
@@ -267,7 +288,6 @@ class Trader:
             self.IN_SHORT_TRADE = True
             self.price_for_buffer = price
 
-    # initialise Ichimoku indicator
     def get_initial_data(self):
         try:
             self.price.append(get_live_price(self.ticker))
@@ -495,6 +515,9 @@ class Master:
 
 
 def main():
+    """
+        Main Function
+    """
     # make sure that market is open
     if not DEV_MODE:
         if is_open():
