@@ -5,13 +5,6 @@ import os
 import json
 
 
-# get data to plot
-def show_files():
-    for _, _, files in os.walk("database"):
-        for file in files:
-            print(file.rstrip(".json"))
-
-
 class Ichimoku:
     def __init__(self):
         style.use("seaborn")
@@ -25,7 +18,7 @@ class Ichimoku:
         self.senkou_A_data = list()
 
     def from_file(self, filename):
-        path = ".\\database\\" + filename + ".json"
+        path = ".\\database\\" + filename
         with open(path, "r") as fp:
             src = json.loads(fp.read())
         self.ticker = src['ticker']
@@ -95,18 +88,20 @@ class Ichimoku:
         plt.ylabel('y - axis')
         plt.title('ICHIMOKU - ' + self.ticker)
         plt.legend()
-        filepath = ".\\"
-        plt.savefig(filename, bbox_inches='tight')
-        plt.show()
+        filePath = ".\\plots\\" + self.ticker + ".png"
+        plt.savefig(filePath, bbox_inches='tight')
+        # plt.show()
 
 
-def plot(file):
+def plot(file_):
     ichPlot = Ichimoku()
-    ichPlot.from_file(file)
+    ichPlot.from_file(file_)
     ichPlot.prepare_data()
     ichPlot.plot_data()
+    plt.clf()
 
 
 if __name__ == "__main__":
-    show_files()
-    plot("ZUARIGLOB.BO")
+    for _, _, files in os.walk("database"):
+        for file in files:
+            plot(file)
