@@ -21,3 +21,6 @@ CLI/*
 
 # zip files
 *.zip
+
+# trials
+Trials/*
