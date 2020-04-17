@@ -14,10 +14,10 @@ class LoggerFormatter(logging.Formatter):
 		return '[%s] [%s] %s :: %s' % (time, level, ''.ljust(padding), record.getMessage())
 
 
-def master_logger():
-	logger = logging.getLogger("main.log")
+def master_logger(path):
+	logger = logging.getLogger(path)
 	logger.setLevel(logging.DEBUG)
-	fh = logging.FileHandler("main.log")
+	fh = logging.FileHandler(path)
 	fh.setLevel(logging.DEBUG)
 	fh.setFormatter(LoggerFormatter())
 	logger.addHandler(fh)
