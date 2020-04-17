@@ -121,8 +121,7 @@ if args.nd:
     else:
         IDLE_DELAY = 0
 else:
-    if args.delay != IDLE_DELAY:
-        IDLE_DELAY = args.delay
+    IDLE_DELAY = args.delay
 
 if args.np:
     PERIOD_INTERVAL = 0
