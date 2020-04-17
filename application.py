@@ -1,9 +1,10 @@
 # import necessary libraries
 from OpenSSL.SSL import SysCallError
-from clint.textui import puts, colored
 from bs4 import BeautifulSoup
 from collections import deque
-from library.si import get_live_price
+from library import get_live_price
+from library import Notify
+from library import master_logger, trader_logger
 from time import sleep
 import requests
 import argparse
@@ -12,20 +13,6 @@ import datetime
 import pytz
 import json
 import os
-
-
-class Notify:
-    @staticmethod
-    def info(message: str) -> None:
-        puts(colored.green("[ MESSAGE ]  ") + message)
-
-    @staticmethod
-    def warn(message: str) -> None:
-        puts(colored.cyan("[ WARNING ]  ") + message)
-
-    @staticmethod
-    def fatal(message: str) -> None:
-        puts(colored.red("[  FATAL  ]  ") + message)
 
 
 ##############################################################
@@ -39,7 +26,7 @@ HEADING = '''
                                            /____/
 
 '''
-puts(colored.yellow(HEADING))
+Notify.heading(HEADING)
 
 ##############################################################
 
@@ -61,7 +48,7 @@ NUM_OF_STOCKS_TO_SEARCH = 100
 # number of stocks to focus trading on
 NUM_OF_STOCKS_TO_FOCUS = 5
 # percentage buffer to be set for stop loss/trade exit
-BUFFER_PERCENT = 0.09
+BUFFER_PERCENT = 0.06
 # number of observations of prices during initialisation phase, minimum value of 80
 DATA_LIMIT = 80
 # interval of each period, in seconds
@@ -80,15 +67,19 @@ PACK_UP = datetime.time(hour=15, minute=15, second=0)
 
 ##############################################################
 
+ml = master_logger(f'database/{datetime.date.today().strftime("%d-%m-%Y")}/master.log')
+ml.info("----------------------------------------------------------------------------")
+##############################################################
+
 try:
     ACCOUNT = json.loads(open("database/user_info.json").read())["account_balance"] * FEASIBLE_PERCENT
 except FileNotFoundError:
     Notify.fatal('User info not found, Aborting.')
+    ml.critical("User info not found")
     quit(0)
-
+ml.info("Successfully loaded user_info.json")
 ##############################################################
 
-BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart/"
 HEADERS = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36"
 }
@@ -118,22 +109,29 @@ args = parser.parse_args()
 if args.nd:
     if args.delay != IDLE_DELAY:
         Notify.fatal("Invalid set of arguments given. Aborting")
+        ml.critical("Received no delay and custom delay")
+        quit(0)
     else:
         IDLE_DELAY = 0
+        ml.warning("Running in no delay mode")
 else:
     IDLE_DELAY = args.delay
+    ml.info(f"Idle delay set to {IDLE_DELAY}")
 
 if args.np:
     PERIOD_INTERVAL = 0
+    ml.warning("Running with zero period interval !")
 
 if args.t:
     IDLE_DELAY = 1
     PERIOD_INTERVAL = 0
+    ml.warning("Running in test mode")
 
 # developer mode
 DEV_MODE = args.nd and args.np
 if DEV_MODE:
     PENNY_STOCK_THRESHOLD = 0
+    ml.warning("Running in developer mode")
 
 ##############################################################
 
@@ -168,15 +166,20 @@ def is_open():
         True if market is open, False otherwise
 
     """
+    global ml
+
     now = datetime.datetime.now(TZ)
     # if a holiday
     if now.strftime('%Y-%m-%d') in INDIA_HOLIDAYS:
+        ml.error("Holiday ! ")
         return False
     # if before opening or after closing
     if (now.time() < OPEN_TIME) or (now.time() > CLOSE_TIME):
+        ml.error("Market closed.")
         return False
     # if it is a weekend
     if now.date().weekday() > 4:
+        ml.error("Weekday !")
         return False
     return True
 
@@ -281,26 +284,31 @@ class Trader:
             price = prev_data["stocks_to_sell"][self.ticker]["buffer_price"]
             self.IN_LONG_TRADE = True
             self.price_for_buffer = price
-        # check if alloted stock has been sold the previos day or not, short trade
+        # check if allotted stock has been sold the previous day or not, short trade
         if self.ticker in prev_data["stocks_to_buy_back"]:
             price = prev_data["stocks_to_buy_back"][self.ticker]["buffer_price"]
             self.IN_SHORT_TRADE = True
             self.price_for_buffer = price
+        self.logger = trader_logger(self.ticker)
 
     def get_initial_data(self):
         try:
             self.price.append(get_live_price(self.ticker))
+            self.logger.debug("Successfully fetched live price")
         except SysCallError:
             Notify.warn(f"[Trader #{self.number} {self.ticker}]: Encountered SysCallError while initialising parameters, trying recursion")
+            self.logger.warning("Encountered SysCallError, trying recursion")
             self.get_initial_data()
         except Exception as e:
             Notify.warn(f"[Trader #{self.number} {self.ticker}]: Exception in getting initial data, trying recursion")
+            self.logger.error("Trying recursion due to uncommon Exception : ", e)
             self.get_initial_data()
 
     def buy(self, price, trade):
         global ACCOUNT
         now = datetime.datetime.now(TZ).strftime('%H:%M:%S')
         self.bought_price = price
+        self.logger.info("Bought stock, in ", trade, " trade, for ", price, " INR")
         ACCOUNT -= price
         self.database['Activity'][now] = {
             "trade": trade,
@@ -311,6 +319,7 @@ class Trader:
         global ACCOUNT
         now = datetime.datetime.now(TZ).strftime('%H:%M:%S')
         self.sold_price = price
+        self.logger.info("Sold stock, in ", trade, " trade, for ", price, " INR")
         ACCOUNT += price
         self.database['Activity'][now] = {
             "trade": trade,
@@ -321,11 +330,14 @@ class Trader:
         try:
             new_price = get_live_price(self.ticker)
             self.price.append(new_price)
+            self.logger.info("Successfully fetched price, local database updated")
         except SysCallError:
             Notify.warn(f"[Trader #{self.number} {self.ticker}] : Encountered SysCallError in updating price, trying recursion")
+            self.logger.warning("Encountered SysCallError while fetching live price, trying recursion")
             self.update_price()
         except Exception as e:
             Notify.warn(f"[Trader #{self.number} {self.ticker}] : Exception in updating price, trying recursion")
+            self.logger.error("Trying recursion, encountered uncommon exception : ", e)
             self.update_price()
 
     def update_data(self):
@@ -360,16 +372,22 @@ class Trader:
         # get Ichimoku params for comparison
         x = self.time[26:26 + DATA_LIMIT][-1]
         curr_price = self.price[-1]
+        tenkan = self.tenkan_data[-1]
         kijun = self.kijun_data[-1]
         sen_A = get_value(self.senkou_A_data, self.x5, x)
         sen_B = get_value(self.senkou_B_data, self.x6, x)
+        self.logger.info(f"Current status - Price : {curr_price}, Tenkan : {tenkan}, Kijun : {kijun}, Senkou A : {sen_A}, Senkou B : {sen_B}")
 
         # conditions for long trade entry
         # If Kumo cloud is green and current price is above kumo, strong bullish signal
         cond1 = (sen_A > sen_B) and (curr_price >= sen_A)
+        if cond1:
+            self.logger.debug("Sensing strong bullish signal")
         # conditions for short trade entry
         # If Kumo cloud is red and current price is below kumo, strong bearish signal
         cond2 = (sen_A < sen_B) and (curr_price <= sen_A)
+        if cond2:
+            self.logger.debug("Sensing strong bearish signal")
         # check allocated money
         cond3 = curr_price < ACCOUNT
 
@@ -381,6 +399,7 @@ class Trader:
             self.STOCKS_TO_SELL += 1
         if not cond3:
             Notify.fatal(f"[Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
+            self.logger.critical("Trader out of cash to buy stocks!")
         # If all conditions are right, short trade entry
         if cond2 and not self.IN_SHORT_TRADE:
             self.sell(curr_price, "SHORT")
@@ -405,6 +424,7 @@ class Trader:
                 self.STOCKS_TO_BUY_BACK -= 1
             if not cond3:
                 Notify.fatal(f"[Trader #{self.number} {self.ticker}] : Oops! Out of cash!")
+                self.logger.critical("Trader out of cash to buy back stock !")
 
     # group update and decision call for convenience
     def run(self):
@@ -414,6 +434,7 @@ class Trader:
     def __del__(self):
         with open(self.ticker + ".json", "w") as fp:
             fp.write(json.dumps(self.database, indent=4))
+        self.logger.critical("Trader killed")
 
 
 # Manages all the traders
@@ -434,14 +455,19 @@ class Master:
 
     # allocate tickers to traders
     def lineup_traders(self, tickers):
+        global ml
         count = 1
         for ticker in tickers:
             self.traders.append(Trader(count, ticker))
             count += 1
+        ml.info("Trader lineup complete")
 
     # initialise traders
     def init_traders(self, Tmode=False):
+        global ml
+
         Notify.info("Traders are in Observation phase")
+        ml.info("Traders entered Observation Phase")
         if not Tmode:
             print_progress_bar(0, 80, prefix='\tProgress:', suffix='Complete', length=40)
             for i in range(DATA_LIMIT):
@@ -450,36 +476,44 @@ class Master:
                 print_progress_bar(i + 1, 80, prefix='\tProgress:', suffix='Complete', length=40)
                 sleep(PERIOD_INTERVAL)
         Notify.info("\tStatus : Complete")
+        ml.info("Observation Phase complete")
         print("")
 
     # trading begins
     def start_trading(self, Tmode=False):
+        global ml
+
         now = datetime.datetime.now(TZ)
         Notify.info("Trading has begun")
+        ml.info("Trading has begun")
+        count = 1
         if not Tmode:
             while now.time() < PACK_UP or DEV_MODE:
                 try:
                     for trader in self.traders:
                         trader.run()
+                    ml.info("Completed round #", count)
                     sleep(PERIOD_INTERVAL)
                 except Exception as e:
                     Notify.fatal("Trading has been aborted")
-                    print(e)
+                    ml.critical("Trade abort due to unexpected error : ", e)
                     quit(0)
                 finally:
                     now = datetime.datetime.now(TZ)
+                    count += 1
         else:
             Notify.info("Confirming access to live stock price...")
+            ml.info("Confirming access to live stock price...")
             for trader in self.traders:
                 try:
                     get_live_price(trader.ticker)
                 except Exception as e:
                     Notify.fatal("Error in fetching live stock price. Aborting")
-                    print(e)
+                    ml.critical("Error in fetching live stock price : ", e)
 
     # save master data
     def __del__(self):
-        global ACCOUNT
+        global ACCOUNT, ml
         # load previous day's data
         prev_data = json.loads(open("..\\user_info.json").read())
         username = prev_data['username']
@@ -509,8 +543,11 @@ class Master:
             fp.write(json.dumps(new_data, indent=4))
         # output profit
         Notify.info(f"\n\nNet Profit : {profit} INR\n")
+        ml.info(f"\n\nNet Profit : {profit} INR\n")
         Notify.info(f'Stocks owned : {len(new_data["stocks_to_sell"])}')
+        ml.info(f'Stocks owned : {len(new_data["stocks_to_sell"])}')
         Notify.info(f'Stocks owed : {len(new_data["stocks_to_buy_back"])}')
+        ml.info(f'Stocks owed : {len(new_data["stocks_to_buy_back"])}')
 
 
 def main():
@@ -534,17 +571,25 @@ def main():
         Notify.info("Skipped Idle phase")
     else:
         Notify.info(f"Entered Idle phase at {datetime.datetime.now(TZ).strftime('%H:%M:%S')}")
+        ml.info(f"Entered Idle phase")
         Notify.info(f"\tExpected release : after {IDLE_DELAY // 60} minutes")
         print("")
         sleep(IDLE_DELAY)
 
+    ml.info("Idle phase complete")
     # find relevant stocks to focus on
     Notify.info("Finding stocks to focus on .....")
-    stocks_to_focus = fetch_stocks()
+    try:
+        stocks_to_focus = fetch_stocks()
+    except Exception as e:
+        stocks_to_focus = []
+        ml.critical("Could not fetch relevant stocks : ", e)
+        quit(0)
+    Notify.info("\tStatus : Complete")
+    ml.info("Successfully found relevant stocks")
     print("")
     print(stocks_to_focus)
     print("")
-    Notify.info("\tStatus : Complete")
     print("")
 
     # setup traders and begin trade
@@ -556,6 +601,7 @@ def main():
 
     # trading in over by this point
     Notify.info("Trading complete")
+    ml.info("Trading complete")
 
     # initiate packup
     del master
@@ -567,4 +613,5 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         Notify.fatal("Operation cancelled by user.")
+        ml.critical("Operation cancelled by user")
         quit(0)
