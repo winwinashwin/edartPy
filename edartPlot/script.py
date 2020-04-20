@@ -88,9 +88,9 @@ class Ichimoku:
         plt.ylabel('y - axis')
         plt.title('ICHIMOKU - ' + self.ticker)
         plt.legend()
-        filePath = ".\\plots\\" + self.ticker + ".png"
-        plt.savefig(filePath, bbox_inches='tight')
-        # plt.show()
+        # filePath = ".\\plots\\" + self.ticker + ".png"
+        # plt.savefig(filePath, bbox_inches='tight')
+        plt.show()
 
 
 def plot(file_):
@@ -102,6 +102,7 @@ def plot(file_):
 
 
 if __name__ == "__main__":
-    for _, _, files in os.walk("database"):
-        for file in files:
-            plot(file)
+    # for _, _, files in os.walk("database"):
+    #     for file in files:
+    #         plot(file)
+    plot("GOODYEAR.BO.json")

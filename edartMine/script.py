@@ -64,7 +64,7 @@ class Miner:
         except SysCallError:
             Notify.warn(f"[Miner #{self.number} {self.ticker}]: Encountered SysCallError while fetching data, trying recursion")
             self.run()
-        except Exception as e:
+        except:
             Notify.warn(f"[Miner #{self.number} {self.ticker}]: Exception while fetching data, trying recursion")
             self.run()
         else:
