@@ -18,6 +18,6 @@ CLI/*
 
 # trials
 trials/*
-trial.py
+test.py
 
 .idea/*
