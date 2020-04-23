@@ -14,6 +14,7 @@ import datetime
 import pytz
 import json
 import os
+import sys
 
 
 # setup for coloured output
@@ -70,12 +71,14 @@ IDLE_DELAY = 1800
 PACK_UP = datetime.time(hour=15, minute=15, second=0)
 
 ##############################################################
-today = datetime.date.today().strftime("%d-%m-%Y")
-if not os.path.exists(f"database/{today}"):
-    os.mkdir(f"database/{today}")
-ml = master_logger(f'database/{today}/master.log')
+TODAY = datetime.date.today().strftime("%d-%m-%Y")
+if not os.path.exists(f"database/{TODAY}"):
+    os.mkdir(f"database/{TODAY}")
+ml = master_logger(f'database/{TODAY}/master.log')
 ml.info("-"*76)
 ml.info("-"*27 + " NEW SESSION DETECTED " + "-"*27)
+sys.stderr = open(f"database/{TODAY}/errorStream.txt", "a")
+
 ##############################################################
 
 try:
@@ -86,6 +89,7 @@ except FileNotFoundError:
     quit(0)
 ml.info("Successfully loaded user_info.json")
 ml.info("-"*76)
+
 ##############################################################
 
 HEADERS = {
@@ -121,25 +125,27 @@ if args.nd:
         quit(0)
     else:
         IDLE_DELAY = 0
-        ml.warning("Running in no delay mode")
+        ml.warning("[  MODE  ]  Zero delay")
 else:
     IDLE_DELAY = args.delay
     ml.info(f"Idle delay set to {IDLE_DELAY}")
 
 if args.np:
     PERIOD_INTERVAL = 0
-    ml.warning("Running with zero period interval !")
+    ml.warning("[  MODE  ]  Zero period interval")
 
 if args.t:
     IDLE_DELAY = 1
     PERIOD_INTERVAL = 0
-    ml.warning("Running in test mode")
+    Notify.warn("Running in Test Mode, meant for debugging and demonstration purposes only.")
+    ml.warning("[  MODE  ]  TEST")
+    print("")
 
 # developer mode
 DEV_MODE = args.nd and args.np
 if DEV_MODE:
     PENNY_STOCK_THRESHOLD = 0
-    ml.warning("Running in developer mode")
+    ml.warning("[  MODE  ]  DEVELOPER")
 
 ##############################################################
 
@@ -199,12 +205,21 @@ def fetch_stocks():
         Deque of tickers of relevant stocks
 
     """
+
+    global ml
+
     # url to grab data from
     url = f'https://in.finance.yahoo.com/gainers?count={NUM_OF_STOCKS_TO_SEARCH}'
     # request header
     headers = {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'}
-    src = requests.get(url=url, headers=headers).content
+    try:
+        src = requests.get(url=url, headers=headers).content
+    except Exception as e:
+        src = None
+        Notify.fatal("Trade abort due to unexpected error. Check activity log for details")
+        ml.critical("Encountered error : ", e)
+        quit(0)
     # soup object of source code
     soup = BeautifulSoup(src, "html.parser")
     rows = soup.find('table').tbody.find_all('tr')
@@ -298,6 +313,9 @@ class Trader:
             self.IN_SHORT_TRADE = True
             self.price_for_buffer = price
         self.logger = trader_logger(self.ticker)
+        self.logger.info("-" * 76)
+        self.logger.info("-" * 27 + " NEW SESSION DETECTED " + "-" * 27)
+        self.logger.info("-" * 76)
 
     def get_initial_data(self):
         try:
@@ -467,8 +485,10 @@ class Master:
         count = 1
         for ticker in tickers:
             self.traders.append(Trader(count, ticker))
+            Notify.info(f"Successfully connected Trader #{count} to {ticker}", delay=0.01)
             count += 1
         ml.info("Trader lineup complete")
+        print("")
 
     # initialise traders
     def init_traders(self, Tmode=False):
@@ -564,7 +584,13 @@ def main():
     """
     # make sure that market is open
     if not DEV_MODE:
-        if is_open():
+        if args.t:
+            Notify.for_input("Check Market? (y/n) : ")
+            confirm = input().strip().lower()
+            print("")
+        else:
+            confirm = "y"
+        if is_open() or confirm == "n":
             pass
         else:
             Notify.fatal("Market is closed at the moment, aborting.")
@@ -572,7 +598,7 @@ def main():
             quit(0)
     else:
         Notify.warn("You are in developer mode, if not intended, please quit.")
-        Notify.info("Press ENTER to continue, Ctrl + C to quit")
+        Notify.info("Press ENTER to continue, Ctrl+C to quit")
         input()
 
     # allow market to settle to launch Ichimoku strategy
@@ -590,15 +616,13 @@ def main():
     Notify.info("Finding stocks to focus on .....")
     try:
         stocks_to_focus = fetch_stocks()
-    except Exception as e:
+    except:
         stocks_to_focus = []
-        ml.critical("Could not fetch relevant stocks : ", e)
+        Notify.fatal("Could not fetch relevant stocks. Verify Network connection and check logs for details.")
+        ml.critical("Could not fetch relevant stocks, Most possibly due to network error")
         quit(0)
     Notify.info("\tStatus : Complete")
     ml.info("Successfully found relevant stocks")
-    print("")
-    print(stocks_to_focus)
-    print("")
     print("")
 
     # setup traders and begin trade
@@ -624,3 +648,6 @@ if __name__ == "__main__":
         Notify.fatal("Operation cancelled by user.")
         ml.critical("Operation cancelled by user")
         quit(0)
+    except Exception as err:
+        Notify.fatal("Encountered fatal error. Check log for details. Aborting")
+        ml.critical("Trade abort due to unexpected error : ", err)

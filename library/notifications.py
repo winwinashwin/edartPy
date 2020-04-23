@@ -2,7 +2,7 @@ from colorama import Fore, Style
 from time import sleep
 
 
-PAUSE = 0.03
+PAUSE = 0.02
 
 
 class Notify:
@@ -12,25 +12,32 @@ class Notify:
         print(Style.RESET_ALL)
 
     @staticmethod
-    def info(message: str) -> None:
+    def for_input(message: str, delay: float = PAUSE) -> None:
         print(Fore.GREEN + "[ MESSAGE ]  " + Style.RESET_ALL, end="")
         for char in message:
             print(char, end="")
-            sleep(PAUSE)
+            sleep(delay)
+
+    @staticmethod
+    def info(message: str, delay: float = PAUSE) -> None:
+        print(Fore.GREEN + "[ MESSAGE ]  " + Style.RESET_ALL, end="")
+        for char in message:
+            print(char, end="")
+            sleep(delay)
         print("")
 
     @staticmethod
-    def warn(message: str) -> None:
+    def warn(message: str, delay: float = PAUSE) -> None:
         print(Fore.CYAN + "[ WARNING ]  " + Style.RESET_ALL, end="")
         for char in message:
             print(char, end="")
-            sleep(PAUSE)
+            sleep(delay)
         print("")
 
     @staticmethod
-    def fatal(message: str) -> None:
+    def fatal(message: str, delay: float = PAUSE) -> None:
         print(Fore.RED + "[  FATAL  ]  " + Style.RESET_ALL, end="")
         for char in message:
             print(char, end="")
-            sleep(PAUSE)
+            sleep(delay)
         print("")
