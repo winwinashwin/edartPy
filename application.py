@@ -5,6 +5,7 @@ from collections import deque
 from library import get_live_price
 from library import Notify
 from library import master_logger, trader_logger
+from colorama import init
 from time import sleep
 import requests
 import argparse
@@ -14,6 +15,9 @@ import pytz
 import json
 import os
 
+
+# setup for coloured output
+init()
 
 ##############################################################
 
@@ -66,9 +70,12 @@ IDLE_DELAY = 1800
 PACK_UP = datetime.time(hour=15, minute=15, second=0)
 
 ##############################################################
-
-ml = master_logger(f'database/{datetime.date.today().strftime("%d-%m-%Y")}/master.log')
-ml.info("----------------------------------------------------------------------------")
+today = datetime.date.today().strftime("%d-%m-%Y")
+if not os.path.exists(f"database/{today}"):
+    os.mkdir(f"database/{today}")
+ml = master_logger(f'database/{today}/master.log')
+ml.info("-"*76)
+ml.info("-"*27 + " NEW SESSION DETECTED " + "-"*27)
 ##############################################################
 
 try:
@@ -78,6 +85,7 @@ except FileNotFoundError:
     ml.critical("User info not found")
     quit(0)
 ml.info("Successfully loaded user_info.json")
+ml.info("-"*76)
 ##############################################################
 
 HEADERS = {
@@ -136,7 +144,7 @@ if DEV_MODE:
 ##############################################################
 
 
-def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r"):
+def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', print_end="\r"):
     """
         Call in a loop to create terminal progress bar
         @params:
@@ -150,9 +158,9 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
             printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
     """
     percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + ' ' * (length - filledLength)
-    print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end=printEnd)
+    filled_length = int(length * iteration // total)
+    bar = fill * filled_length + ' ' * (length - filled_length)
+    print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end=print_end)
     # print new line on complete
     if iteration == total:
         print()
@@ -564,6 +572,7 @@ def main():
             quit(0)
     else:
         Notify.warn("You are in developer mode, if not intended, please quit.")
+        Notify.info("Press ENTER to continue, Ctrl + C to quit")
         input()
 
     # allow market to settle to launch Ichimoku strategy
