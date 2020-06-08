@@ -1,3 +1,5 @@
+![alt text](https://img.shields.io/badge/status-stable-brightgreen)
+
 # edartPy
 
 
@@ -5,13 +7,26 @@
 ![GitHub Logo](https://i.morioh.com/2019/10/30/49137bce15d7.jpg)
 
 
+Setup
+-----
 
+* Install dependancies
+
+```bash
+pip install -r requirements.txt
+```
+
+* Run application
+
+```bash
+python3 application.py
+```
 Description
 -----------
 
 A fully **automated Trading bot** built in python with an **appealing Command Line Interface**. The bot uses the Ichimoku Indicator and employs **Kumo Breakout strategy** for generating buy and sell calls.
 
-
+**Disclaimer** : This application is just a starter code for real time use. This is yet to be integrated with a trading broker API
 
 ### Workflow
 
