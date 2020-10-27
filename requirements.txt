@@ -10,7 +10,7 @@ cffi==1.14.0
 chardet==3.0.4
 colorama==0.4.3
 convertdate==2.2.0
-cryptography==2.9
+cryptography==3.2
 cssselect==1.1.0
 cycler==0.10.0
 fake-useragent==0.1.11
