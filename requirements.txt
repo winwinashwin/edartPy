@@ -19,7 +19,7 @@ idna==2.9
 importlib-metadata==1.6.0
 kiwisolver==1.2.0
 korean-lunar-calendar==0.2.1
-lxml==4.5.0
+lxml==4.6.2
 matplotlib==3.2.1
 more-itertools==8.2.0
 numpy==1.18.2
