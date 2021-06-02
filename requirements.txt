@@ -43,7 +43,7 @@ requests-html==0.10.0
 six==1.14.0
 soupsieve==2.0
 tqdm==4.45.0
-urllib3==1.25.8
+urllib3==1.26.5
 w3lib==1.21.0
 wcwidth==0.1.9
 websockets==8.1
